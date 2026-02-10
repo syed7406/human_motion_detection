@@ -16,6 +16,34 @@ Lightweight human motion detection and tracking project using YOLOv8-pose, OpenC
 brew install python@3.11
 ```
 
+CI/CD Workflows included
+-----------------------
+
+This repository includes two GitHub Actions workflows to help automate deployment:
+
+- `.github/workflows/frontend-deploy.yml` — deploys the `frontend/` folder to Vercel on pushes to `main`. It uses the `amondnet/vercel-action` and requires these repository secrets:
+	- `VERCEL_TOKEN` (required)
+	- `VERCEL_ORG_ID` (optional)
+	- `VERCEL_PROJECT_ID` (optional)
+
+- `.github/workflows/backend-deploy.yml` — SSHs into a remote VM and runs `deploy_vm.sh` to update and start the backend. It requires these repository secrets:
+	- `DEPLOY_HOST` — target VM IP/hostname
+	- `DEPLOY_USER` — SSH username
+	- `DEPLOY_SSH_KEY` — private SSH key (PEM)
+	- `DEPLOY_SSH_PORT` — optional (default 22)
+
+Using the workflows
+-------------------
+
+1. Add the required secrets to your GitHub repository: Settings → Secrets → Actions.
+2. Connect the repository to Vercel if you prefer automatic frontend deploys via Vercel UI, or provide the `VERCEL_*` secrets to allow the workflow to trigger a Vercel deploy.
+3. For backend deploys, ensure the target VM is reachable from GitHub Actions and that the provided `DEPLOY_SSH_KEY` has access to the `DEPLOY_USER` account. The workflow will clone or reset the `Human_motion_detection` directory and run `deploy_vm.sh`.
+
+Notes and recommendations
+-------------------------
+- For large model files, prefer hosting them in S3 or another object store and download at runtime. Do not commit large binaries to Git history.
+- If you need a secure CI/CD pipeline for production, consider restricting the SSH user, using a deployment user account, and adding firewall rules to limit access.
+
 2. Create and activate a virtual environment (from the project root):
 
 ```bash
