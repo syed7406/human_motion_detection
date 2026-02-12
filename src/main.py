@@ -9,7 +9,8 @@ import os
 # CONFIGURATION (No separate config file needed)
 # ============================================================
 class Config:
-    MODEL_PATH = "yolov8n-pose.pt"
+    # Use the ultralytics model handle so weights are auto-downloaded at runtime
+    MODEL_PATH = "yolov8n-pose"
     CONFIDENCE_THRESHOLD = 0.5
     MAX_TRACKING_AGE = 30
     INPUT_SOURCE = 0
@@ -41,7 +42,12 @@ class Config:
 class HumanDetector:
     def __init__(self, model_path, confidence_threshold=0.5):
         from ultralytics import YOLO
-        self.model = YOLO(model_path)
+        try:
+            self.model = YOLO(model_path)
+        except Exception as e:
+            print(f"Failed to load model '{model_path}': {e}")
+            print("If you're deploying to Vercel, ensure the deployment environment can install PyTorch/Ultralytics or host the weights externally.")
+            raise
         self.confidence_threshold = confidence_threshold
         
         # Load eye cascade for eye open/close detection

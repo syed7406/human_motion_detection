@@ -2,33 +2,340 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Human Motion Detection — Live</title>
+    
     <style>
-      body { font-family: Arial, sans-serif; text-align:center; padding:20px }
-      #frame { max-width: 100%; height: auto; border: 1px solid #ddd }
-      #status { margin-top: 12px }
-    </style>
-  </head>
-  <body>
-    <h1>Human Motion Detection — Live</h1>
-    <img id="frame" src="/api/frame" alt="live frame" />
-    <div id="status">Connecting...</div>
-
-    <script>
-      const backendOrigin = location.origin.replace(/:\d+$/, ':8000'); // assume backend runs on port 8000
-      const img = document.getElementById('frame');
-      const status = document.getElementById('status');
-
-      function refresh() {
-        img.src = backendOrigin + '/frame?ts=' + Date.now();
-        fetch(backendOrigin + '/status').then(r=>r.json()).then(j=>{
-          status.textContent = `FPS: ${j.fps || '...' } | Frames: ${j.frame_count || '...'} | Detected: ${j.total_detected || '...'}`
-        }).catch(()=>{ status.textContent = 'Backend not reachable' });
+      /* Global Styles */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
       }
 
-      setInterval(refresh, 500);
-      refresh();
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        text-align: center;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        color: #333;
+      }
+
+      /* Header Styles */
+      h1 {
+        color: #ffffff;
+        margin-bottom: 30px;
+        font-size: 2.5rem;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        font-weight: 600;
+      }
+
+      /* Main Container */
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background-color: rgba(255, 255, 255, 0.95);
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      }
+
+      /* Video Frame Styles */
+      #frame {
+        max-width: 100%;
+        height: auto;
+        border: 3px solid #667eea;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        transition: transform 0.3s ease;
+        display: block;
+        margin: 0 auto;
+      }
+
+      #frame:hover {
+        transform: scale(1.02);
+      }
+
+      /* Status Bar Styles */
+      #status {
+        margin-top: 20px;
+        padding: 15px 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 500;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+        letter-spacing: 0.5px;
+      }
+
+      /* Loading Animation */
+      .loading {
+        display: inline-block;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      /* Error State */
+      .error {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      }
+
+      /* Success State */
+      .success {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+      }
+
+      /* Info Panel */
+      .info-panel {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+      }
+
+      .info-card {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #667eea;
+      }
+
+      .info-card h3 {
+        color: #667eea;
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .info-card p {
+        color: #333;
+        font-size: 1.5rem;
+        font-weight: bold;
+      }
+
+      /* Responsive Design */
+      @media (max-width: 768px) {
+        h1 {
+          font-size: 1.8rem;
+        }
+
+        .container {
+          padding: 20px;
+        }
+
+        #status {
+          font-size: 0.9rem;
+          padding: 12px 15px;
+        }
+
+        .info-card p {
+          font-size: 1.2rem;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>🎥 Human Motion Detection — Live</h1>
+    
+    <div class="container">
+      <!-- Live Video Feed -->
+      <img 
+        id="frame" 
+        src="/api/frame" 
+        alt="Live detection feed"
+        onerror="handleImageError()"
+      />
+      
+      <!-- Status Bar -->
+      <div id="status" class="loading">
+        Connecting to backend...
+      </div>
+
+      <!-- Info Panel -->
+      <div class="info-panel">
+        <div class="info-card">
+          <h3>Frame Rate</h3>
+          <p id="fps-display">--</p>
+        </div>
+        <div class="info-card">
+          <h3>Total Frames</h3>
+          <p id="frames-display">--</p>
+        </div>
+        <div class="info-card">
+          <h3>Humans Detected</h3>
+          <p id="detected-display">--</p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      /**
+       * Human Motion Detection Frontend
+       * Displays live video feed and statistics from backend API
+       */
+
+      // Configuration
+      const CONFIG = {
+        // Backend API base URL (adjust port if needed)
+        backendOrigin: location.origin.replace(/:\d+$/, ':8000'),
+        
+        // Refresh interval in milliseconds (500ms = 2Hz)
+        refreshInterval: 500,
+        
+        // Connection timeout in milliseconds
+        fetchTimeout: 5000
+      };
+
+      // DOM Elements
+      const elements = {
+        frame: document.getElementById('frame'),
+        status: document.getElementById('status'),
+        fpsDisplay: document.getElementById('fps-display'),
+        framesDisplay: document.getElementById('frames-display'),
+        detectedDisplay: document.getElementById('detected-display')
+      };
+
+      // State
+      let connectionAttempts = 0;
+      let isConnected = false;
+
+      /**
+       * Fetch with timeout
+       * @param {string} url - The URL to fetch
+       * @param {number} timeout - Timeout in milliseconds
+       * @returns {Promise} - Fetch promise with timeout
+       */
+      function fetchWithTimeout(url, timeout = CONFIG.fetchTimeout) {
+        return Promise.race([
+          fetch(url),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Timeout')), timeout)
+          )
+        ]);
+      }
+
+      /**
+       * Update video frame with latest image from backend
+       */
+      function updateFrame() {
+        const timestamp = Date.now();
+        elements.frame.src = `${CONFIG.backendOrigin}/api/frame?ts=${timestamp}`;
+      }
+
+      /**
+       * Fetch and display system status
+       */
+      async function updateStatus() {
+        try {
+          const response = await fetchWithTimeout(
+            `${CONFIG.backendOrigin}/api/status`
+          );
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const data = await response.json();
+          
+          // Update connection state
+          if (!isConnected) {
+            isConnected = true;
+            connectionAttempts = 0;
+          }
+
+          // Update status bar
+          elements.status.textContent = 
+            `🟢 Connected | Camera: ${data.camera_active ? 'Active' : 'Inactive'}`;
+          elements.status.className = 'success';
+
+          // Update individual displays
+          elements.fpsDisplay.textContent = 
+            data.fps ? `${data.fps.toFixed(1)} FPS` : '--';
+          elements.framesDisplay.textContent = 
+            data.frame_count ? data.frame_count.toLocaleString() : '--';
+          elements.detectedDisplay.textContent = 
+            data.total_detected ? data.total_detected.toLocaleString() : '--';
+
+        } catch (error) {
+          handleConnectionError(error);
+        }
+      }
+
+      /**
+       * Handle connection errors
+       * @param {Error} error - The error object
+       */
+      function handleConnectionError(error) {
+        connectionAttempts++;
+        isConnected = false;
+
+        console.error('Backend connection error:', error);
+
+        // Update status with retry count
+        elements.status.textContent = 
+          `🔴 Backend not reachable (Attempt ${connectionAttempts})`;
+        elements.status.className = 'error';
+
+        // Clear individual displays
+        elements.fpsDisplay.textContent = '--';
+        elements.framesDisplay.textContent = '--';
+        elements.detectedDisplay.textContent = '--';
+      }
+
+      /**
+       * Handle image load errors
+       */
+      function handleImageError() {
+        console.warn('Failed to load video frame');
+        // The frame will retry on next refresh cycle
+      }
+
+      /**
+       * Refresh all data (frame + status)
+       */
+      function refresh() {
+        updateFrame();
+        updateStatus();
+      }
+
+      /**
+       * Initialize the application
+       */
+      function init() {
+        console.log('Initializing Human Motion Detection Frontend...');
+        console.log(`Backend: ${CONFIG.backendOrigin}`);
+        
+        // Initial refresh
+        refresh();
+        
+        // Set up periodic refresh
+        setInterval(refresh, CONFIG.refreshInterval);
+        
+        console.log(`Refresh interval: ${CONFIG.refreshInterval}ms`);
+      }
+
+      // Start the application when DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+
+      // Expose handleImageError to global scope for onerror attribute
+      window.handleImageError = handleImageError;
     </script>
   </body>
 </html>
