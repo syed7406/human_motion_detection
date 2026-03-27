@@ -240,14 +240,23 @@
        * @returns {string} Backend API origin URL
        */
       function getBackendOrigin() {
+        const params = new URLSearchParams(window.location.search);
+        const backendParam = params.get('backend') || params.get('api');
+        if (backendParam) {
+          return decodeURIComponent(backendParam);
+        }
         // Check if backend is specified in URL hash
         if (window.location.hash) {
           return window.location.hash.substring(1);
         }
         
-        // For same-origin requests (frontend and backend on same
-        // domain), use the current origin
-        return location.origin.replace(/:\d+$/, ':8000');
+        // Local dev: assume backend runs on :8000
+        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+          return location.origin.replace(/:\d+$/, ':8000');
+        }
+
+        // Hosted: assume same-origin reverse proxy if available
+        return location.origin;
       }
 
       /**

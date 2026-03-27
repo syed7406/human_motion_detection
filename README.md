@@ -19,12 +19,7 @@ brew install python@3.11
 CI/CD Workflows included
 -----------------------
 
-This repository includes two GitHub Actions workflows to help automate deployment:
-
-- `.github/workflows/frontend-deploy.yml` — deploys the `frontend/` folder to Vercel on pushes to `main`. It uses the `amondnet/vercel-action` and requires these repository secrets:
-	- `VERCEL_TOKEN` (required)
-	- `VERCEL_ORG_ID` (optional)
-	- `VERCEL_PROJECT_ID` (optional)
+This repository includes one GitHub Actions workflow to help automate backend deployment:
 
 - `.github/workflows/backend-deploy.yml` — SSHs into a remote VM and runs `deploy_vm.sh` to update and start the backend. It requires these repository secrets:
 	- `DEPLOY_HOST` — target VM IP/hostname
@@ -35,9 +30,8 @@ This repository includes two GitHub Actions workflows to help automate deploymen
 Using the workflows
 -------------------
 
-1. Add the required secrets to your GitHub repository: Settings → Secrets → Actions.
-2. Connect the repository to Vercel if you prefer automatic frontend deploys via Vercel UI, or provide the `VERCEL_*` secrets to allow the workflow to trigger a Vercel deploy.
-3. For backend deploys, ensure the target VM is reachable from GitHub Actions and that the provided `DEPLOY_SSH_KEY` has access to the `DEPLOY_USER` account. The workflow will clone or reset the `Human_motion_detection` directory and run `deploy_vm.sh`.
+1. Add the required backend deploy secrets to your GitHub repository: Settings → Secrets → Actions.
+2. For backend deploys, ensure the target VM is reachable from GitHub Actions and that the provided `DEPLOY_SSH_KEY` has access to the `DEPLOY_USER` account. The workflow will clone or reset the `Human_motion_detection` directory and run `deploy_vm.sh`.
 
 Notes and recommendations
 -------------------------
@@ -104,22 +98,22 @@ Next steps I can take for you now
 
 Tell me which option you want me to implement and I will proceed.
 
-Hybrid deployment (Vercel frontend + VM backend)
------------------------------------------------
+Hybrid deployment (Firebase frontend + VM backend)
+-------------------------------------------------
 
 This project now includes a small hybrid scaffold:
 
-- `frontend/index.html`: static frontend suitable for deploying to Vercel.
-- `backend/api_server.py`: FastAPI backend that runs the detector in the background and serves the latest annotated frame at `/frame` and stats at `/status`.
+- `frontend/index.html`: static frontend suitable for deploying to Firebase Hosting.
+- `api/api_server.py`: FastAPI backend that runs the detector in the background and serves the latest annotated frame at `/frame` and stats at `/status`.
 
 How it works
-- Deploy `frontend/` to Vercel (static site). The frontend polls `http://<BACKEND_HOST>:8000/frame` to display the latest frame.
+- Deploy `frontend/` to Firebase Hosting (static site). The frontend polls `http://<BACKEND_HOST>:8000/frame` to display the latest frame.
 - Run the `backend` on a cloud VM (or on your Mac) and make it reachable from the frontend (open port 8000 or use a reverse proxy / tunnel).
 
 Quick deploy steps
-1. Frontend (Vercel)
-	- Create a new Vercel project and point it at this repo's `frontend` folder (Vercel autodetects static site). Deploy — Vercel will provide a URL.
-	- In production, edit `frontend/index.html` to replace the `backendOrigin` assignment with your backend URL (e.g. `https://api.example.com`).
+1. Frontend (Firebase Hosting)
+	- Deploy the `frontend/` folder using Firebase Hosting config in `firebase.json`.
+	- In production, pass your backend URL to the frontend by appending `?backend=https://api.example.com` (or `#https://api.example.com`) to your Firebase Hosting URL.
 
 2. Backend (VM)
 	- Provision an Ubuntu VM (or similar). On the VM:
@@ -137,7 +131,7 @@ pip install --upgrade pip setuptools wheel
 pip install -r backend/requirements.txt
 
 # run the backend (for testing)
-uvicorn backend.api_server:app --host 0.0.0.0 --port 8000
+uvicorn api.api_server:app --host 0.0.0.0 --port 8000
 ```
 
 	- To run as a persistent service, create a `systemd` unit (example):
@@ -150,7 +144,7 @@ After=network.target
 [Service]
 User=ubuntu
 WorkingDirectory=/home/ubuntu/human_motion_detection
-ExecStart=/home/ubuntu/human_motion_detection/.venv311/bin/uvicorn backend.api_server:app --host 0.0.0.0 --port 8000
+ExecStart=/home/ubuntu/human_motion_detection/.venv311/bin/uvicorn api.api_server:app --host 0.0.0.0 --port 8000
 Restart=always
 
 [Install]
@@ -160,8 +154,27 @@ WantedBy=multi-user.target
 Security / CORS:
 - Open port 8000 or run behind a reverse proxy (nginx) and use HTTPS. Configure firewall rules to restrict access if needed.
 
+Docker backend (portable)
+-------------------------
+
+You can run the backend in a container on a VM or server:
+
+```bash
+docker build -t hmd-backend .
+docker run --rm -p 8000:8000 hmd-backend
+```
+
+If you need camera access on Linux, pass the device:
+
+```bash
+docker run --rm --device=/dev/video0 -p 8000:8000 hmd-backend
+```
+
+Notes:
+- Docker on macOS does not expose the host camera; run the backend directly on macOS or on a Linux VM for camera access.
+
 If you want, I can:
-- scaffold a proper Next.js frontend instead of static HTML for Vercel, or
+- scaffold a proper frontend app instead of static HTML for Firebase Hosting, or
 - provision a cloud VM with a one-shot script (I can provide commands for AWS/GCP/DigitalOcean), or
 - implement an authenticated streaming endpoint instead of simple polling.
 

@@ -1,0 +1,13 @@
+.git
+.github
+.venv*
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.log
+.DS_Store
+output_video.avi
+hmd.log
+hmd.err

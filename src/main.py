@@ -46,7 +46,7 @@ class HumanDetector:
             self.model = YOLO(model_path)
         except Exception as e:
             print(f"Failed to load model '{model_path}': {e}")
-            print("If you're deploying to Vercel, ensure the deployment environment can install PyTorch/Ultralytics or host the weights externally.")
+            print("If you're deploying to cloud hosting, ensure the deployment environment can install PyTorch/Ultralytics or host the weights externally.")
             raise
         self.confidence_threshold = confidence_threshold
         

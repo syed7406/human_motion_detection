@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "humanmotiondetection-877db"
+  },
+  "targets": {
+    "humanmotiondetection-877db": {
+      "hosting": {
+        "frontend": [
+          "humanmotiondetection-877db"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
